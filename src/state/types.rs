@@ -29,6 +29,7 @@ impl Default for QuoteResponse {
 pub struct QuoteRequest {
     pub pair_address: String,
     pub source_mint: String,
+    pub destination_mint: String,
     pub amount_in: u64,
 }
 pub struct QuoteParams {

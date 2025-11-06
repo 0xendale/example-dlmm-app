@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use crate::state::pair_account::PairAccount;
+use jupiter_amm_interface::KeyedAccount;
 use saros_sdk::state::bin_array::BinArray;
 use saros_sdk::state::pair::Pair;
 use saros_sdk::utils::helper::get_pair_bin_array;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::program_pack::Pack;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
 
-#[derive(Clone, Copy)]
 pub struct PoolState {
     pub mint_x: Pubkey,
     pub mint_y: Pubkey,
@@ -31,7 +29,7 @@ impl PoolState {
         }
     }
 
-    pub fn fetch(client: Arc<RpcClient>, pair_account: PairAccount) -> Self {
+    pub fn fetch(client: Arc<RpcClient>, pair_account: KeyedAccount) -> Self {
         let pair_state =
             Pair::unpack(&pair_account.account.data).expect("Failed to unpack pair account");
         let bin_array_index = pair_state.bin_array_index();

@@ -1,7 +1,7 @@
 use core::fmt;
 use mpl_token_metadata::accounts::Metadata;
 use saros_sdk::{state::pair::Pair, utils::helper::is_swap_for_y};
-use solana_sdk::{packet::Meta, program_pack::Pack, pubkey::Pubkey};
+use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
 use std::{collections::HashMap, str::FromStr, string, sync::Arc, time::Duration};
 use tokio::time::Instant;
 
@@ -23,13 +23,12 @@ use tower_http::{
 
 use solana_client::rpc_client::RpcClient;
 
-use crate::app::{AppConfig, AppContext};
-use crate::dlmm;
-use crate::state::{QuoteRequest, SwapMode, TokenMeta, TokenResponse};
 use crate::{
-    dlmm::{DLMMClient, DLMMClientInterface, DLMMClientService},
-    state::QuoteParams,
+    app::{AppConfig, AppContext},
+    state::QuoteRequest,
 };
+
+use jupiter_amm_interface::{Amm, QuoteParams, SwapMode};
 
 pub async fn start_web_server(config: AppConfig) -> anyhow::Result<()> {
     let app_state = Arc::new(AppContext::new(config));
@@ -143,6 +142,7 @@ async fn get_quote(
     info!("Body: {:?}", body);
 
     let source_mint = Pubkey::from_str_const(&body.source_mint);
+    let destination_mint = Pubkey::from_str_const(&body.destination_mint);
 
     // 1️⃣ take DLMM client
     let dlmm_client = match ctx
@@ -178,9 +178,10 @@ async fn get_quote(
     };
 
     let req = QuoteParams {
-        amount: body.amount_in as u64,
-        input_mint: Pubkey::from_str_const(&body.source_mint),
+        amount: body.amount_in,
+        input_mint: source_mint,
         swap_mode,
+        output_mint: destination_mint,
     };
 
     // 2️⃣ call get_quote() from DLMM client
@@ -190,7 +191,10 @@ async fn get_quote(
             "pair": pair_address,
             "input": body.source_mint,
             "output": body.source_mint,
-            "quote": quote
+            "in_amount": quote.in_amount,
+            "out_amount": quote.out_amount,
+            "fee_amount": quote.fee_amount,
+            "fee_mint": quote.fee_mint.to_string()
         })),
         Err(e) => Json(json!({ "status": "error", "message": e.to_string() })),
     };

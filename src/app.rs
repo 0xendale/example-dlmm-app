@@ -1,15 +1,14 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use anyhow::{Ok, Result};
-use mpl_token_metadata::accounts::Metadata;
+use crate::state::{MintAccount, PairAccount, PoolState, State, TokenMeta};
+use anyhow::{Context, Ok, Result};
+use jupiter_amm_interface::{Amm, AmmContext, ClockRef, KeyedAccount};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::pubkey::Pubkey;
-use tokio::task;
+use solana_sdk::{clock::Clock, pubkey::Pubkey, sysvar};
 use tokio::{sync::RwLock, time::Instant};
 use tracing::info;
 
-use crate::dlmm::DLMMClient;
-use crate::state::{MintAccount, PairAccount, PoolState, State, TokenMeta};
+use saros_dlmm::SarosDlmm;
 
 #[derive(Clone)]
 pub struct CachedPool {
@@ -67,7 +66,7 @@ impl<T> Cached<T> {
 pub struct AppContext {
     pub config: AppConfig,
     pub rpc_client: Arc<RpcClient>,
-    pub pair_accounts: Arc<RwLock<HashMap<Pubkey, Cached<PairAccount>>>>,
+    pub pair_accounts: Arc<RwLock<HashMap<Pubkey, Cached<KeyedAccount>>>>,
     pub pool_states: Arc<RwLock<HashMap<Pubkey, Cached<Option<PoolState>>>>>,
     pub mint_accounts: Arc<RwLock<HashMap<Pubkey, Cached<MintAccount>>>>,
     pub token_meta_cache: Arc<RwLock<HashMap<Pubkey, Cached<TokenMeta>>>>,
@@ -86,17 +85,30 @@ impl AppContext {
         }
     }
 
-    pub async fn get_or_spawn_client(&self, pool_key: Pubkey) -> Result<Arc<DLMMClient>> {
+    pub async fn get_or_spawn_client(&self, pool_key: Pubkey) -> Result<Arc<SarosDlmm>> {
         let ttl = self.config.cache_ttl.clone();
         let mut cached_pools = self.pair_accounts.write().await;
         let mut cached_states = self.pool_states.write().await;
         let mut cached_mints = self.mint_accounts.write().await;
 
+        let clock_data = self
+            .rpc_client
+            .get_account_with_commitment(&sysvar::clock::ID, self.rpc_client.commitment())?
+            .value
+            .context("Failed to get clock account")?;
+
+        let clock: Clock = bincode::deserialize(&clock_data.data)
+            .context("Failed to deserialize clock account data")?;
+
+        let amm_context = AmmContext {
+            clock_ref: ClockRef::try_from(clock)?,
+        };
+
         if let Some(cached) = cached_pools.get(&pool_key) {
             if !cached.is_expired(ttl.pool_ttl) {
                 let pair_account = cached.value.as_ref().clone();
 
-                Arc::new(DLMMClient::new_from_pair(pair_account)?);
+                Arc::new(SarosDlmm::from_keyed_account(&pair_account, &amm_context)?);
             } else {
                 // ⚡ cleanup lazy
                 cached_pools.remove(&pool_key);
@@ -104,7 +116,7 @@ impl AppContext {
             }
         }
 
-        let pair_account = State::generate_pair_account(self.rpc_client.clone(), pool_key).await?;
+        let pair_account = State::generate_keyed_account(self.rpc_client.clone(), pool_key).await?;
         cached_pools.insert(pool_key, Cached::new(pair_account.clone()));
 
         let state =
@@ -126,14 +138,17 @@ impl AppContext {
             cached_mints.insert(mint_account.key, Cached::new(mint_account.clone()));
         }
 
-        let client = Arc::new(DLMMClient::new_from_pair(pair_account.clone())?);
+        let client = Arc::new(SarosDlmm::from_keyed_account(
+            &pair_account.clone(),
+            &amm_context,
+        )?);
 
         Ok(client)
     }
 
     pub async fn fetch_pair_token_info(
         &self,
-        dlmm_client: &Arc<DLMMClient>,
+        dlmm_client: &Arc<SarosDlmm>,
     ) -> Result<[TokenMeta; 2]> {
         let mut mint_a_state = TokenMeta::default();
         let mut mint_b_state = TokenMeta::default();

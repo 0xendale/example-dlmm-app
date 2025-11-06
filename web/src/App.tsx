@@ -60,6 +60,7 @@ export default function App() {
     if (!pair || !value) return;
     try {
       const base = isReversed ? tokens.b : tokens.a;
+      const quote = isReversed ? tokens.a : tokens.b;
       console.info("fetching quote", base);
       const res = await fetch("/api/quote", {
         method: "POST",
@@ -67,6 +68,7 @@ export default function App() {
         body: JSON.stringify({
           pair_address: pair,
           source_mint: base.address,
+          destination_mint: quote.address,
           amount_in: parseFloat(value) * 10 ** base.decimals,
         }),
       });
@@ -106,18 +108,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-cosmos text-white">
       <nav className="flex justify-between items-center px-8 py-4 border-b border-gray-800 bg-plasma/60 backdrop-blur-md">
-        <h1 className="text-xl font-bold text-neon">Saros DLMM SDK</h1>
-        <div className="flex gap-6 text-gray-400 text-sm">
-          <a href="#" className="hover:text-neon transition">
-            Pool
-          </a>
-          <a href="#" className="hover:text-neon transition">
-            Docs
-          </a>
-          <a href="#" className="hover:text-neon transition">
-            Support
-          </a>
-        </div>
+        <h1 className="text-xl font-bold text-neon">Saros DLMM App</h1>
         <button className="px-4 py-2 bg-neon text-black rounded-lg font-semibold hover:shadow-glow transition">
           Connect
         </button>
