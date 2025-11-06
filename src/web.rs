@@ -1,8 +1,15 @@
+use ahash::RandomState;
 use core::fmt;
 use mpl_token_metadata::accounts::Metadata;
 use saros_sdk::{state::pair::Pair, utils::helper::is_swap_for_y};
-use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
-use std::{collections::HashMap, str::FromStr, string, sync::Arc, time::Duration};
+use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    string,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::time::Instant;
 
 use tokio::sync::RwLock;
@@ -25,12 +32,14 @@ use solana_client::rpc_client::RpcClient;
 
 use crate::{
     app::{AppConfig, AppContext},
+    dlmm::{self, UpdateAmm},
     state::QuoteRequest,
 };
+use anyhow::{Context, Result};
 
-use jupiter_amm_interface::{Amm, QuoteParams, SwapMode};
+use jupiter_amm_interface::{AccountMap, Amm, QuoteParams, SwapMode};
 
-pub async fn start_web_server(config: AppConfig) -> anyhow::Result<()> {
+pub async fn start_web_server(config: AppConfig) -> Result<()> {
     let app_state = Arc::new(AppContext::new(config));
 
     let static_files = ServeDir::new(format!("{}/web/dist", env!("CARGO_MANIFEST_DIR")));
@@ -64,7 +73,6 @@ pub async fn start_web_server(config: AppConfig) -> anyhow::Result<()> {
 }
 
 /// === Handlers ===
-
 async fn ping() -> &'static str {
     "pong 🦀"
 }
@@ -106,7 +114,9 @@ async fn get_pair(
 
     info!("🔍 Fetching metadata from RPC for pair {}", pair_address);
 
-    let [mint_a_meta, mint_b_meta] = match ctx.fetch_pair_token_info(&dlmm_client).await {
+    let saros_dlmm = dlmm_client.saros_dlmm.read().await;
+
+    let [mint_a_meta, mint_b_meta] = match ctx.fetch_pair_token_info(&saros_dlmm).await {
         Ok(mints) => mints,
         Err(e) => {
             return Json(json!({ "error": format!("Failed to get token info: {}", e) }));
@@ -161,16 +171,27 @@ async fn get_quote(
         body.source_mint
     );
 
-    let is_swap_for_y = is_swap_for_y(source_mint, dlmm_client.pair.token_mint_x);
+    for _ in 0..3 {
+        {
+            if let Err(e) = dlmm_client.update(&ctx).await {
+                tracing::warn!("⚠️ Failed to update DLMM client: {}", e);
+                continue;
+            }
+        }
+    }
+
+    let client = dlmm_client.saros_dlmm.read().await;
+
+    let is_swap_for_y = is_swap_for_y(source_mint, client.pair.token_mint_x);
 
     let swap_mode = if is_swap_for_y {
-        if source_mint == dlmm_client.pair.token_mint_x {
+        if source_mint == client.pair.token_mint_x {
             SwapMode::ExactIn
         } else {
             SwapMode::ExactOut
         }
     } else {
-        if source_mint == dlmm_client.pair.token_mint_x {
+        if source_mint == client.pair.token_mint_x {
             SwapMode::ExactOut
         } else {
             SwapMode::ExactIn
@@ -185,7 +206,7 @@ async fn get_quote(
     };
 
     // 2️⃣ call get_quote() from DLMM client
-    let result = match dlmm_client.quote(&req) {
+    let result = match client.quote(&req) {
         Ok(quote) => Json(json!({
             "status": "ok",
             "pair": pair_address,
@@ -200,20 +221,6 @@ async fn get_quote(
     };
 
     result
-
-    // let mock_result = Json(json!({
-    //     "status": "ok",
-    //     "pair": pair_address,
-    //     "input": body.source_mint,
-    //     "output": body.source_mint,
-    //     "quote": {
-    //         "amount_in": body.amount_in,
-    //         "amount_out": body.amount_in * 98 / 100,
-    //         "fee_amount": body.amount_in * 2 / 100
-    //     }
-    // }));
-
-    // mock_result
 }
 
 async fn simulate_swap(

@@ -1,5 +1,5 @@
-mod saros_dlmm;
+mod dlmm_client;
 mod utils;
 
-pub use saros_dlmm::*;
+pub use dlmm_client::*;
 pub use utils::*;

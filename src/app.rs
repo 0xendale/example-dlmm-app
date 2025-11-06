@@ -1,6 +1,9 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use crate::state::{MintAccount, PairAccount, PoolState, State, TokenMeta};
+use crate::{
+    dlmm::DLMMClient,
+    state::{MintAccount, PoolState, State, TokenMeta},
+};
 use anyhow::{Context, Ok, Result};
 use jupiter_amm_interface::{Amm, AmmContext, ClockRef, KeyedAccount};
 use solana_client::rpc_client::RpcClient;
@@ -85,7 +88,7 @@ impl AppContext {
         }
     }
 
-    pub async fn get_or_spawn_client(&self, pool_key: Pubkey) -> Result<Arc<SarosDlmm>> {
+    pub async fn get_or_spawn_client(&self, pool_key: Pubkey) -> Result<Arc<DLMMClient>> {
         let ttl = self.config.cache_ttl.clone();
         let mut cached_pools = self.pair_accounts.write().await;
         let mut cached_states = self.pool_states.write().await;
@@ -138,18 +141,15 @@ impl AppContext {
             cached_mints.insert(mint_account.key, Cached::new(mint_account.clone()));
         }
 
-        let client = Arc::new(SarosDlmm::from_keyed_account(
-            &pair_account.clone(),
-            &amm_context,
-        )?);
+        let saros_dlmm = SarosDlmm::from_keyed_account(&pair_account.clone(), &amm_context)?;
+        let client = Arc::new(DLMMClient {
+            saros_dlmm: Arc::new(RwLock::new(saros_dlmm)),
+        });
 
         Ok(client)
     }
 
-    pub async fn fetch_pair_token_info(
-        &self,
-        dlmm_client: &Arc<SarosDlmm>,
-    ) -> Result<[TokenMeta; 2]> {
+    pub async fn fetch_pair_token_info(&self, dlmm_client: &SarosDlmm) -> Result<[TokenMeta; 2]> {
         let mut mint_a_state = TokenMeta::default();
         let mut mint_b_state = TokenMeta::default();
 
