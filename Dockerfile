@@ -2,12 +2,12 @@
 FROM node:24-alpine AS web
 WORKDIR /app/web
 
-# Yarn on Node 24 Corepack
-RUN corepack enable && corepack prepare yarn@stable --activate
+# Enable corepack (for yarn)
+RUN corepack enable
 
-# Cache deps
+# Copy deps and install
 COPY web/package.json web/yarn.lock ./
-RUN yarn install --frozen-lockfile
+RUN yarn install --immutable
 
 # Copy source & build
 COPY web/ .
@@ -17,14 +17,13 @@ RUN yarn build
 FROM rust:1.85.0 AS builder
 WORKDIR /app
 
-# Cache deps
+# Cache Cargo deps
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main(){}" > src/main.rs
+RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release || true
 
-# Copy source & build
+# Copy source + built web
 COPY src ./src
-# ⬅️ Copy built web assets from Stage 1
 COPY --from=web /app/web/dist ./web/dist
 
 RUN cargo build --release
