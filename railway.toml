@@ -1,5 +1,0 @@
-[build]
-command = "just build"
-
-[start]
-command = "cargo run --release -- start --web"
