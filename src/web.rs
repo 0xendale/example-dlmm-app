@@ -1,43 +1,26 @@
-use ahash::RandomState;
-use core::fmt;
-use mpl_token_metadata::accounts::Metadata;
-use saros_sdk::{state::pair::Pair, utils::helper::is_swap_for_y};
-use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    string,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-use tokio::time::Instant;
-
-use tokio::sync::RwLock;
-use tracing::{info, warn};
+use saros_sdk::utils::helper::is_swap_for_y;
+use solana_sdk::pubkey::Pubkey;
+use std::{collections::HashMap, sync::Arc};
+use tracing::info;
 
 use axum::{
     extract::{Query, State},
-    response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
-use serde::{de, Deserialize, Deserializer, Serialize};
 use serde_json::json;
 use tower_http::{
     cors::{Any, CorsLayer},
     services::ServeDir,
 };
 
-use solana_client::rpc_client::RpcClient;
-
 use crate::{
     app::{AppConfig, AppContext},
-    dlmm::{self, UpdateAmm},
     state::QuoteRequest,
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 
-use jupiter_amm_interface::{AccountMap, Amm, QuoteParams, SwapMode};
+use jupiter_amm_interface::{Amm, QuoteParams, SwapMode};
 
 pub async fn start_web_server(config: AppConfig) -> Result<()> {
     let app_state = Arc::new(AppContext::new(config));
@@ -75,20 +58,6 @@ pub async fn start_web_server(config: AppConfig) -> Result<()> {
 /// === Handlers ===
 async fn ping() -> &'static str {
     "pong 🦀"
-}
-
-/// Serde deserialization decorator to map empty Strings to None,
-fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: FromStr,
-    T::Err: fmt::Display,
-{
-    let opt = Option::<String>::deserialize(de)?;
-    match opt.as_deref() {
-        None | Some("") => Ok(None),
-        Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
-    }
 }
 
 /// Get pool info by pubkey
@@ -131,16 +100,7 @@ async fn get_pair(
     }))
 }
 
-async fn get_pools(State(_ctx): State<Arc<AppContext>>) -> Json<serde_json::Value> {
-    // mock: replace with real fetch later
-    let pools = json!([
-        { "pool_id": "ExamplePool1", "token_a": "SOL", "token_b": "USDC" },
-        { "pool_id": "ExamplePool2", "token_a": "ETH", "token_b": "USDT" }
-    ]);
-
-    Json(pools)
-}
-
+#[axum::debug_handler]
 async fn get_quote(
     State(ctx): State<Arc<AppContext>>,
     Json(body): Json<QuoteRequest>,

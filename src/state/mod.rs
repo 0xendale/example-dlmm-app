@@ -9,7 +9,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use jupiter_amm_interface::KeyedAccount;
 pub use mint_account::*;
-pub use pair_account::*;
 pub use pool_state::*;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;

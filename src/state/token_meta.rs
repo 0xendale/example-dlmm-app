@@ -3,10 +3,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use mpl_token_metadata::accounts::Metadata;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
-use spl_token::state::Mint;
+use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
 use spl_token_2022_interface::{
-    extension::{metadata_pointer::MetadataPointer, BaseStateWithExtensions, StateWithExtensions},
+    extension::{BaseStateWithExtensions, StateWithExtensions},
     state::Mint as Mint2022,
 };
 
@@ -85,9 +84,13 @@ impl TokenMeta {
         let account = client.get_account_data(&metadata_pda)?;
 
         let metadata = Metadata::safe_deserialize(&mut &account[..])?;
+        let symbol = String::from_utf8_lossy(metadata.symbol.as_bytes())
+            .trim_end_matches('\0')
+            .to_string();
+
         Ok(Metadata {
             name: metadata.name,
-            symbol: metadata.symbol,
+            symbol,
             uri: metadata.uri,
             key: metadata.key,
             update_authority: metadata.update_authority,

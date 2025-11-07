@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use ahash::RandomState;
-use jupiter_amm_interface::{Amm, Quote, QuoteParams};
+use jupiter_amm_interface::Amm;
 use saros_dlmm::SarosDlmm;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
@@ -41,13 +41,7 @@ impl UpdateAmm for SarosDlmm {
 impl DLMMClient {
     pub async fn update(&self, ctx: &AppContext) -> Result<()> {
         let mut s = self.saros_dlmm.write().await;
-        s.update_amm(ctx).await; // ✅ mutate safely
+        s.update_amm(ctx).await?;
         Ok(())
-    }
-
-    pub async fn quote(&self, quote_params: QuoteParams) -> Result<Quote> {
-        let s = self.saros_dlmm.read().await;
-        let quote_result = s.quote(&quote_params)?; // ✅ read safely
-        Ok(quote_result)
     }
 }

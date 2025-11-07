@@ -1,3 +1,4 @@
+import { token } from "@project-serum/anchor/dist/cjs/utils";
 import React, { useState, useEffect } from "react";
 
 type TokenInfo = {
@@ -25,6 +26,7 @@ export default function App() {
   const [isReversed, setIsReversed] = useState(false);
   const [amountIn, setAmountIn] = useState("");
   const [quote, setQuote] = useState<any>(null);
+  const [amountOut, setAmountOut] = useState("0");
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -73,7 +75,19 @@ export default function App() {
         }),
       });
       const data = await res.json();
-      setQuote(data);
+
+      console.log("quote response", data);
+      if (data.error) throw new Error("Failed to fetch quote");
+
+      let quote_data = {
+        input: base.symbol.toString(),
+        in_amount: data.in_amount,
+        output: quote.symbol.toString(),
+        amount_out: data.out_amount,
+        fee_amount: data.fee_amount,
+      };
+      setAmountOut(String(quote_data.amount_out / 10 ** quote.decimals));
+      setQuote(quote_data);
     } catch {
       setQuote({ error: "❌ Failed to fetch quote" });
     }
@@ -99,7 +113,7 @@ export default function App() {
       if (pair && amountIn) {
         getQuote(amountIn);
       }
-    }, 500);
+    }, 2000);
   };
 
   const tokenSell = isReversed ? tokens.b : tokens.a;
@@ -184,7 +198,7 @@ export default function App() {
                 <div className="input-row transition-all duration-500">
                   <input
                     type="number"
-                    value={quote?.amount_out || ""}
+                    value={amountOut || ""}
                     readOnly
                     placeholder="0.0"
                   />

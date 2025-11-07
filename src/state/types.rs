@@ -1,12 +1,6 @@
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
-#[derive(Debug, Copy, Clone)]
-pub enum SwapMode {
-    ExactIn,
-    ExactOut,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuoteResponse {
     pub in_amount: u64,
@@ -31,11 +25,6 @@ pub struct QuoteRequest {
     pub source_mint: String,
     pub destination_mint: String,
     pub amount_in: u64,
-}
-pub struct QuoteParams {
-    pub amount: u64,
-    pub input_mint: Pubkey,
-    pub swap_mode: SwapMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

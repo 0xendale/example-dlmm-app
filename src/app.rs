@@ -12,13 +12,6 @@ use tokio::{sync::RwLock, time::Instant};
 use tracing::info;
 
 use saros_dlmm::SarosDlmm;
-
-#[derive(Clone)]
-pub struct CachedPool {
-    pub data: serde_json::Value,
-    pub timestamp: Instant,
-}
-
 #[derive(Clone)]
 pub struct TTLConfig {
     pub pool_ttl: Duration,
@@ -109,15 +102,21 @@ impl AppContext {
 
         if let Some(cached) = cached_pools.get(&pool_key) {
             if !cached.is_expired(ttl.pool_ttl) {
+                info!("Using cached DLMMClient for pool: {:?}", pool_key);
                 let pair_account = cached.value.as_ref().clone();
+                let saros_dlmm = SarosDlmm::from_keyed_account(&pair_account, &amm_context)?;
 
-                Arc::new(SarosDlmm::from_keyed_account(&pair_account, &amm_context)?);
+                return Ok(Arc::new(DLMMClient {
+                    saros_dlmm: Arc::new(RwLock::new(saros_dlmm)),
+                }));
             } else {
                 // ⚡ cleanup lazy
                 cached_pools.remove(&pool_key);
                 cached_states.remove(&pool_key);
             }
         }
+
+        info!("Spawning new DLMMClient for pool: {:?}", pool_key);
 
         let pair_account = State::generate_keyed_account(self.rpc_client.clone(), pool_key).await?;
         cached_pools.insert(pool_key, Cached::new(pair_account.clone()));

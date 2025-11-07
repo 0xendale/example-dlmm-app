@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use jupiter_amm_interface::{KeyedAccount, KeyedUiAccount};
 use serde::{Deserialize, Serialize};
