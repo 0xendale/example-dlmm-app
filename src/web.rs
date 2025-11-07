@@ -1,6 +1,6 @@
 use saros_sdk::utils::helper::is_swap_for_y;
 use solana_sdk::pubkey::Pubkey;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tracing::info;
 
 use axum::{
@@ -48,8 +48,11 @@ pub async fn start_web_server(config: AppConfig) -> Result<()> {
         .layer(cors)
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
-    println!("Web server listening on http://127.0.0.1:3000");
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    println!("Web server listening on http://{}", addr);
     axum::serve(listener, app).await?;
 
     Ok(())
