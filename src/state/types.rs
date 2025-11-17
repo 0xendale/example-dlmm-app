@@ -49,3 +49,32 @@ pub struct TokenResponse {
     pub mint: Pubkey,
     pub decimals: u8,
 }
+
+#[derive(Deserialize, Debug)]
+pub enum InstructionType {
+    #[serde(rename = "swap")]
+    Swap,
+    #[serde(rename = "add_liquidity")]
+    AddLiquidity,
+    #[serde(rename = "remove_liquidity")]
+    RemoveLiquidity,
+    #[serde(rename = "create_position")]
+    CreatePosition,
+    #[serde(rename = "close_position")]
+    ClosePosition,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct InstructionRequest<T> {
+    pub instruction_type: InstructionType,
+    pub pair_address: String,
+    pub params: T,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct SwapInstructionParams {
+    pub source_mint: String,
+    pub destination_mint: String,
+    pub in_amount: u64,
+    pub min_out_amount: u64,
+}

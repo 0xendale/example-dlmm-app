@@ -1,4 +1,23 @@
-export default function SwapInstruction() {
+import { useEffect, useState } from "react";
+
+type Props = {
+  pairAddress: string;
+  tokens: { a: any; b: any };
+  swapParams: any;
+  fetchInstruction: (
+    address: string,
+    instructionType: string,
+    params: any
+  ) => void;
+};
+
+export default function SwapInstruction({
+  pairAddress,
+  tokens,
+  swapParams,
+  fetchInstruction,
+}: Props) {
+  const [instructionType, setInstructionType] = useState("swap");
   const swapAccounts = [
     { name: "User", address: "Your connected wallet" },
     { name: "Pool", address: "Loaded pool pubkey" },
@@ -7,6 +26,11 @@ export default function SwapInstruction() {
     { name: "Vault A", address: "Token A vault" },
     { name: "Vault B", address: "Token B vault" },
   ];
+
+  useEffect(() => {
+    swapParams != null &&
+      fetchInstruction(pairAddress, instructionType, swapParams);
+  }, [swapParams]);
 
   return (
     <div className="swap-card">

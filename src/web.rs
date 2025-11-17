@@ -16,11 +16,14 @@ use tower_http::{
 
 use crate::{
     app::{AppConfig, AppContext},
-    state::{QuoteRequest, Status, WebJsonResponse},
+    state::{
+        InstructionRequest, InstructionType, QuoteRequest, Status, SwapInstructionParams,
+        WebJsonResponse,
+    },
 };
 use anyhow::Result;
 
-use jupiter_amm_interface::{Amm, QuoteParams, SwapMode};
+use jupiter_amm_interface::{Amm, QuoteParams, SwapMode, SwapParams};
 
 pub async fn start_web_server(config: AppConfig) -> Result<()> {
     let app_state = Arc::new(AppContext::new(config));
@@ -37,6 +40,7 @@ pub async fn start_web_server(config: AppConfig) -> Result<()> {
     let sdk_routes = Router::new()
         .route("/api/pair", get(get_pair))
         .route("/api/quote", post(get_quote))
+        .route("/api/instruction", post(get_instruction))
         .route("/api/simulate", post(simulate_swap));
 
     // Define API routes
@@ -170,7 +174,6 @@ async fn get_quote(
     let client = dlmm_client.saros_dlmm.read().await;
 
     let is_swap_for_y = is_swap_for_y(source_mint, client.pair.token_mint_x);
-
     let swap_mode = if is_swap_for_y {
         if source_mint == client.pair.token_mint_x {
             SwapMode::ExactIn
@@ -212,6 +215,79 @@ async fn get_quote(
     };
 
     result
+}
+
+#[axum::debug_handler]
+async fn get_instruction(
+    State(ctx): State<Arc<AppContext>>,
+    Json(body): Json<InstructionRequest<serde_json::Value>>,
+) -> Json<WebJsonResponse> {
+    let pair_address = body.pair_address.clone();
+
+    let params: SwapInstructionParams = serde_json::from_value(body.params.clone()).unwrap();
+
+    info!("🔍 Getting instruction for pair {}", pair_address);
+
+    let source_mint = Pubkey::from_str_const(&params.source_mint);
+    let destination_mint = Pubkey::from_str_const(&params.destination_mint);
+
+    // 1️⃣ take DLMM client
+    let dlmm_client = match ctx
+        .get_or_spawn_client(Pubkey::from_str_const(&pair_address))
+        .await
+    {
+        Ok(client) => client,
+        Err(e) => {
+            return Json(WebJsonResponse {
+                status: Status::Error,
+                message: format!("Failed to get DLMM client: {}", e),
+                data: json!({}),
+            });
+        }
+    };
+
+    let client = dlmm_client.saros_dlmm.read().await;
+
+    let is_swap_for_y = is_swap_for_y(source_mint, client.pair.token_mint_x);
+    let swap_mode = if is_swap_for_y {
+        if source_mint == client.pair.token_mint_x {
+            SwapMode::ExactIn
+        } else {
+            SwapMode::ExactOut
+        }
+    } else {
+        if source_mint == client.pair.token_mint_x {
+            SwapMode::ExactOut
+        } else {
+            SwapMode::ExactIn
+        }
+    };
+
+    let (instruction_type, params) = match body.instruction_type {
+        InstructionType::Swap => {
+            let params: SwapInstructionParams = serde_json::from_value(body.params).unwrap();
+            info!("💱 Generating swap instruction with params: {:?}", params);
+
+            (
+                "swap",
+                json!({
+                    "amount_in": params.in_amount,
+                    "minimum_amount_out": params.min_out_amount,
+                    "source_mint": params.source_mint,
+                    "destination_mint": params.destination_mint,
+                }),
+            )
+        }
+        _ => ("unsupported", json!({})),
+        // InstructionType::ClosePosition => ("close_position", json!({})),
+    };
+
+    // Implementation for fetching instruction details goes here
+    Json(WebJsonResponse {
+        status: Status::Success,
+        message: "Instruction fetched successfully".to_string(),
+        data: json!({}),
+    })
 }
 
 async fn simulate_swap(
