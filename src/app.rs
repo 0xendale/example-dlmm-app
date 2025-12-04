@@ -23,6 +23,8 @@ pub struct TTLConfig {
 pub struct AppConfig {
     pub rpc_url: String,
     pub cache_ttl: TTLConfig,
+    pub lb_program_id: Pubkey,
+    pub hook_program_id: Pubkey,
 }
 
 impl Default for AppConfig {
@@ -34,6 +36,8 @@ impl Default for AppConfig {
                 token_ttl: Duration::from_secs(43200), // 12 hours
                 bin_ttl: Duration::from_secs(15),      // 15 seconds
             },
+            lb_program_id: Pubkey::from_str_const("1qbkdrr3z4ryLA7pZykqxvxWPoeifcVKo6ZG9CfkvVE"),
+            hook_program_id: Pubkey::from_str_const("mdmavMvJpF4ZcLJNg6VSjuKVMiBo5uKwERTg1ZB9yUH"),
         }
     }
 }

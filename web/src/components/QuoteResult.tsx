@@ -12,7 +12,7 @@ export default function QuoteResult({
   quote,
   getSwap,
   loading,
-  defaultSigner = "CatyeC3LgBxub7HcpW2n7cZZZ66CUKdcZ8DzHucHrSiP",
+  defaultSigner = "RFdow49qKnuRLKu24XjJFiyhsXjaUWtzNxeA38t58At",
 }: Props) {
   const [swapParams, setSwapParams] = useState<any>(null);
   const [signer, setSigner] = useState<string>(defaultSigner);

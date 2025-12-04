@@ -36,7 +36,9 @@ use crate::{
     },
 };
 use anyhow::Result;
-use spl_associated_token_account::get_associated_token_address;
+use spl_associated_token_account::{
+    get_associated_token_address, get_associated_token_address_with_program_id,
+};
 
 use jupiter_amm_interface::{Amm, QuoteParams, SwapMode, SwapParams};
 
@@ -348,10 +350,19 @@ async fn simulate_swap(
 
     let user = Pubkey::from_str_const(&params.signer);
 
-    let source_token_account = get_associated_token_address(&user, &source_mint).to_string();
+    // let source_token_account = get_associated_token_address(&user, &source_mint).to_string();
+    let user_token_vault_x = get_associated_token_address_with_program_id(
+        &user,
+        &client.pair.token_mint_x,
+        &client.token_program[0],
+    );
 
-    let destination_token_account =
-        get_associated_token_address(&user, &destination_mint).to_string();
+    let user_token_vault_y = get_associated_token_address_with_program_id(
+        &user,
+        &client.pair.token_mint_y,
+        &client.token_program[1],
+    );
+
     let is_swap_for_y = is_swap_for_y(source_mint, client.pair.token_mint_x);
     let swap_mode = if is_swap_for_y {
         if source_mint == client.pair.token_mint_x {
@@ -368,12 +379,6 @@ async fn simulate_swap(
     };
 
     let bin_for_swap = client.compute_bin_array_swap().unwrap();
-
-    let (user_vault_x, user_vault_y) = if is_swap_for_y {
-        (source_token_account, destination_token_account)
-    } else {
-        (destination_token_account, source_token_account)
-    };
 
     let (instruction_type, params) = match body.instruction_type {
         InstructionType::Swap => {
@@ -402,11 +407,11 @@ async fn simulate_swap(
                 account_metas.push(AccountMeta::new(client.token_vault[0], false));
                 account_metas.push(AccountMeta::new(client.token_vault[1], false));
                 account_metas.push(AccountMeta::new(
-                    Pubkey::from_str_const(&user_vault_x),
+                    Pubkey::from_str_const(&user_token_vault_x.to_string()),
                     false,
                 ));
                 account_metas.push(AccountMeta::new(
-                    Pubkey::from_str_const(&user_vault_y),
+                    Pubkey::from_str_const(&user_token_vault_y.to_string()),
                     false,
                 ));
                 account_metas.push(AccountMeta::new_readonly(user, true));
@@ -420,18 +425,34 @@ async fn simulate_swap(
 
             // If pair does not have hook, hook should be pair key (dummy)
             account_metas.push(AccountMeta::new(client.hook, false));
-            account_metas.push(AccountMeta::new_readonly(
-                Pubkey::from_str_const("mdmavMvJpF4ZcLJNg6VSjuKVMiBo5uKwERTg1ZB9yUH"),
-                false,
-            ));
+            account_metas.push(AccountMeta::new_readonly(ctx.config.hook_program_id, false));
             // This expect as the last of swap instruction
             account_metas.push(AccountMeta::new_readonly(client.event_authority, false));
             account_metas.push(AccountMeta::new_readonly(client.program_id, false));
 
             // Remaining accounts for hook CPI call
             if client.hook != client.key {
-                account_metas.push(AccountMeta::new(bin_for_swap.hook_bin_array_keys[0], false));
-                account_metas.push(AccountMeta::new(bin_for_swap.hook_bin_array_keys[1], false));
+                let bin_array_index = client.pair.bin_array_index();
+                let (hook_bin_array_lower, _) = Pubkey::find_program_address(
+                    &[
+                        b"bin_array".as_ref(),
+                        client.hook.as_ref(),
+                        (bin_array_index).to_le_bytes().as_ref(),
+                    ],
+                    &ctx.config.hook_program_id,
+                );
+
+                let (hook_bin_array_upper, _) = Pubkey::find_program_address(
+                    &[
+                        b"bin_array".as_ref(),
+                        client.hook.as_ref(),
+                        (bin_array_index + 1).to_le_bytes().as_ref(),
+                    ],
+                    &ctx.config.hook_program_id,
+                );
+
+                account_metas.push(AccountMeta::new(hook_bin_array_lower, false));
+                account_metas.push(AccountMeta::new(hook_bin_array_upper, false));
             }
 
             let swap_instruction = Instruction {

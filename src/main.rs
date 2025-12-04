@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use cli::{Cli, Commands};
+use solana_sdk::pubkey::Pubkey;
 use tracing::info;
 
 #[tokio::main]
@@ -28,6 +29,19 @@ async fn main() -> anyhow::Result<()> {
             if let Ok(rpc_url) = dotenv::var("RPC_URL") {
                 info!("Using RPC URL from .env: {}", rpc_url);
                 config.rpc_url = rpc_url;
+            }
+
+            if let Ok(lb_program_id) = dotenv::var("LB_PROGRAM_ID") {
+                info!(
+                    "Using Liquidity Bootstrapping Program ID from .env: {}",
+                    lb_program_id
+                );
+                config.lb_program_id = Pubkey::from_str_const(&lb_program_id);
+            }
+
+            if let Ok(hook_program_id) = dotenv::var("HOOK_PROGRAM_ID") {
+                info!("Using Hook Program ID from .env: {}", hook_program_id);
+                config.hook_program_id = Pubkey::from_str_const(&hook_program_id);
             }
 
             if let Ok(pool_ttl_secs) = dotenv::var("POOL_CACHE_TTL_SECS") {

@@ -20,7 +20,7 @@ export default function LogResultPanel({ result }: { result: any }) {
       <div className="space-y-1 mb-4">
         <div>
           <span className="text-gray-500">Slot:</span>{" "}
-          <span className="text-purple-300">{result.reponse.slot}</span>
+          <span className="text-purple-300">{result.response.slot}</span>
         </div>
 
         <div>
