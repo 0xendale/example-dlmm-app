@@ -10,7 +10,7 @@ export default function LogResultPanel({ result }: { result: any }) {
     <div className="mt-6 bg-gray-900/60 p-5 rounded-lg border border-gray-800 font-mono text-sm text-gray-300">
       <div className="text-lg mb-2">
         <span className={statusColor}>
-          {result.status === "success"
+          {result.response.status === "success"
             ? "✓ Simulation Success"
             : "✗ Simulation Failed"}
         </span>
@@ -20,22 +20,22 @@ export default function LogResultPanel({ result }: { result: any }) {
       <div className="space-y-1 mb-4">
         <div>
           <span className="text-gray-500">Slot:</span>{" "}
-          <span className="text-purple-300">{result.slot}</span>
+          <span className="text-purple-300">{result.reponse.slot}</span>
         </div>
 
         <div>
           <span className="text-gray-500">Compute Units:</span>{" "}
-          <span className="text-blue-300">{result.units}</span>
+          <span className="text-blue-300">{result.response.units}</span>
         </div>
 
         <div>
           <span className="text-gray-500">Fee:</span>{" "}
-          <span className="text-yellow-300">{result.fee}</span>
+          <span className="text-yellow-300">{result.response.fee}</span>
         </div>
 
-        {result.error && (
+        {result.status == "error" && (
           <div className="text-red-400 mt-2">
-            Error: {JSON.stringify(result.error)}
+            Error: {JSON.stringify(result.response.error)}
           </div>
         )}
       </div>
