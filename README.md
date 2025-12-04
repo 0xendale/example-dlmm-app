@@ -54,12 +54,6 @@ Run both backend (Axum) and frontend (Vite) concurrently with live reload:
 just dev
 ```
 
-This will:
-
-- Watch and rebuild the web app using Vite.
-- Watch and restart the Rust backend using cargo-watch.
-- Serve built web assets through the Axum server.
-
 #### Deployment local :
 
 ```bash
