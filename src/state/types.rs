@@ -77,4 +77,5 @@ pub struct SwapInstructionParams {
     pub destination_mint: String,
     pub in_amount: u64,
     pub min_out_amount: u64,
+    pub signer: String,
 }

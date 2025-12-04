@@ -8,9 +8,11 @@ import SwapInstruction from "./components/Instruction/Swap";
 import CreatePositionInstruction from "./components/Instruction/CreatePosition";
 import ModifyPositionInstruction from "./components/Instruction/ModifierPosition";
 import { TokenInfo } from "./utils/type";
+import SwapResult from "./components/SwapResult";
 
 export default function App() {
   const [loading, setLoading] = useState(false);
+  const [txLoading, setTxLoading] = useState(false);
   const [pair, setPair] = useState("");
   const [pairStatus, setPairStatus] = useState("");
   const [tokens, setTokens] = useState<{ a: TokenInfo; b: TokenInfo }>({
@@ -24,6 +26,7 @@ export default function App() {
   const [amountOut, setAmountOut] = useState("0");
   const [quote, setQuote] = useState<any>(null);
   const [swapParams, setSwapParams] = useState<any>(null);
+  const [txSwap, setTxSwap] = useState<any>(null);
 
   const currentPairRef = useRef(pair);
 
@@ -111,8 +114,28 @@ export default function App() {
     }
   };
 
-  const getSwapInstruction = (params: any) => {
-    setSwapParams(params);
+  const getSwap = async (params: any) => {
+    setTxLoading(true);
+    try {
+      console.info("Trying execute swap transaction", params);
+      const res = await fetch("/api/simulate_swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instruction_type: "swap",
+          pair_address: pair,
+          params: params,
+        }),
+      });
+      const response = await res.json();
+
+      console.log("Swap response: ", response);
+
+      setTxSwap(response);
+      setTxLoading(false);
+    } catch {
+      setTxSwap({ error: "Failed to execute swap" });
+    }
   };
 
   const toggleDirection = () => {
@@ -197,25 +220,19 @@ export default function App() {
             />
 
             {quote != null && (
-              <QuoteResult
-                quote={quote}
-                loading={loading}
-                getSwapInstruction={getSwapInstruction}
-              />
+              <QuoteResult quote={quote} loading={loading} getSwap={getSwap} />
             )}
 
-            <InstructionTabs
-              setPair={setPair}
-              tokens={tokens}
-              fetchPair={fetchPair}
-              pairAddress={pair}
-              pairStatus={pairStatus}
-              loading={loading}
-              swapParams={swapParams}
-              instructionTab={"swap_instruction"}
-            />
+            {txSwap != null && (
+              <SwapResult
+                swapParams={swapParams}
+                loading={txLoading}
+                txSwap={txSwap}
+              />
+            )}
           </div>
         )}
+
         {active === "position" && (
           <InstructionTabs
             setPair={setPair}
