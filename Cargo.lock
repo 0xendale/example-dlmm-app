@@ -1686,6 +1686,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64 0.22.1",
  "bincode",
  "clap",
  "dotenv",
@@ -1700,6 +1701,8 @@ dependencies = [
  "solana-program",
  "solana-program-test",
  "solana-sdk",
+ "solana-transaction-status-client-types",
+ "spl-associated-token-account 7.0.0",
  "spl-token 8.0.0",
  "spl-token-2022 9.0.0",
  "spl-token-2022-interface",
@@ -3026,7 +3029,7 @@ checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 [[package]]
 name = "liquidity-book"
 version = "0.1.0"
-source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?branch=main#dd7e714ffe68708791a91235d2b8a69545780272"
+source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?tag=v0.1.1#341d5551ae6380181c055dfc29a11ffed7fa8caa"
 dependencies = [
  "anchor-lang",
  "bytemuck",
@@ -4218,7 +4221,7 @@ dependencies = [
 [[package]]
 name = "rewarder-hook"
 version = "0.1.0"
-source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?branch=main#dd7e714ffe68708791a91235d2b8a69545780272"
+source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?tag=v0.1.1#341d5551ae6380181c055dfc29a11ffed7fa8caa"
 dependencies = [
  "anchor-lang",
  "bytemuck",
@@ -4504,8 +4507,8 @@ dependencies = [
 
 [[package]]
 name = "saros-dlmm-sdk"
-version = "0.1.0"
-source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?branch=main#dd7e714ffe68708791a91235d2b8a69545780272"
+version = "0.1.1"
+source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?tag=v0.1.1#341d5551ae6380181c055dfc29a11ffed7fa8caa"
 dependencies = [
  "ahash 0.8.12",
  "anchor-lang",
@@ -4541,8 +4544,8 @@ dependencies = [
 
 [[package]]
 name = "saros-sdk"
-version = "0.1.0"
-source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?branch=main#dd7e714ffe68708791a91235d2b8a69545780272"
+version = "0.1.1"
+source = "git+https://github.com/saros-xyz/saros-dlmm-sdk-rs.git?tag=v0.1.1#341d5551ae6380181c055dfc29a11ffed7fa8caa"
 dependencies = [
  "anchor-lang",
  "anyhow",

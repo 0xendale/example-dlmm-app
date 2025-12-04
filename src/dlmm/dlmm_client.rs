@@ -20,6 +20,17 @@ pub trait UpdateAmm: Amm {
 impl UpdateAmm for SarosDlmm {
     async fn update_amm(&mut self, ctx: &AppContext) -> Result<()> {
         let accounts_to_update = self.get_accounts_to_update();
+
+        let cached_state = ctx.pool_states.read().await;
+        let ttl = ctx.config.cache_ttl.clone();
+
+        if let Some(cached_account) = cached_state.get(&self.key) {
+            if !cached_account.is_expired(ttl.bin_ttl) {
+                // continue;
+            }
+        }
+        for account_key in &accounts_to_update {}
+
         let account_map: HashMap<Pubkey, Account, RandomState> = ctx
             .rpc_client
             .get_multiple_accounts(&accounts_to_update)

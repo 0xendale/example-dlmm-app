@@ -7,11 +7,12 @@ import InstructionTabs from "./components/Instruction/Control";
 import SwapInstruction from "./components/Instruction/Swap";
 import CreatePositionInstruction from "./components/Instruction/CreatePosition";
 import ModifyPositionInstruction from "./components/Instruction/ModifierPosition";
-
-type TokenInfo = { symbol: string; address: string; decimals: number };
+import { TokenInfo } from "./utils/type";
+import SwapResult from "./components/SwapResult";
 
 export default function App() {
   const [loading, setLoading] = useState(false);
+  const [txLoading, setTxLoading] = useState(false);
   const [pair, setPair] = useState("");
   const [pairStatus, setPairStatus] = useState("");
   const [tokens, setTokens] = useState<{ a: TokenInfo; b: TokenInfo }>({
@@ -24,6 +25,8 @@ export default function App() {
   const debouncedAmount = useDebounce(amountIn, 500); // 1s delay
   const [amountOut, setAmountOut] = useState("0");
   const [quote, setQuote] = useState<any>(null);
+  const [swapParams, setSwapParams] = useState<any>(null);
+  const [txSwap, setTxSwap] = useState<any>(null);
 
   const currentPairRef = useRef(pair);
 
@@ -95,13 +98,12 @@ export default function App() {
       } else {
         const data = response.data;
         const quoteData = {
-          input: base.symbol,
-          output: quoteToken.symbol,
+          input: base,
+          output: quoteToken,
           in_amount: data.in_amount,
           out_amount: data.out_amount,
           fee_amount: data.fee_amount,
         };
-
         setAmountOut(String(data.out_amount / 10 ** quoteToken.decimals));
         setQuote(quoteData);
       }
@@ -109,6 +111,30 @@ export default function App() {
       setQuote({ error: "Failed to fetch quote" });
     } finally {
       if (currentPairRef.current === thisPair) setLoading(false);
+    }
+  };
+
+  const getSwap = async (params: any) => {
+    setTxLoading(true);
+    try {
+      console.info("Trying execute swap transaction", params);
+      const res = await fetch("/api/simulate_swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instruction_type: "swap",
+          pair_address: pair,
+          params: params,
+        }),
+      });
+      const response = await res.json();
+
+      console.log("Swap response: ", response);
+
+      setTxSwap(response);
+      setTxLoading(false);
+    } catch {
+      setTxSwap({ error: "Failed to execute swap" });
     }
   };
 
@@ -132,7 +158,7 @@ export default function App() {
 
   const tabs = [
     { key: "quote", label: "Quote" },
-    { key: "instruction", label: "Instructions" },
+    { key: "position", label: "PositionManager" },
     { key: "connect", label: "Connect" },
   ];
 
@@ -171,7 +197,10 @@ export default function App() {
       <main className="flex-grow flex items-center justify-center p-6">
         {active === "quote" && (
           <div className="box-middle">
-            <h2 className="inst-title">Quote</h2>
+            <h2 className="inst-title fancy">
+              Quote
+              <span className="inst-sweep" />
+            </h2>
 
             <PoolSelector
               pair={pair}
@@ -190,10 +219,31 @@ export default function App() {
               isReversed={isReversed}
             />
 
-            {quote != null && <QuoteResult quote={quote} loading={loading} />}
+            {quote != null && (
+              <QuoteResult quote={quote} loading={loading} getSwap={getSwap} />
+            )}
+
+            {txSwap != null && (
+              <SwapResult
+                swapParams={swapParams}
+                loading={txLoading}
+                txSwap={txSwap}
+              />
+            )}
           </div>
         )}
-        {active === "instruction" && <InstructionTabs />}
+
+        {active === "position" && (
+          <InstructionTabs
+            setPair={setPair}
+            tokens={tokens}
+            fetchPair={fetchPair}
+            pairAddress={pair}
+            pairStatus={pairStatus}
+            loading={loading}
+            instructionTab={"position"}
+          />
+        )}
         {/* {active === "connect" && <ConnectInstruction />} */}
       </main>
 

@@ -261,25 +261,60 @@ footer {
   }
 }
 
+/* Base gradient title */
 .inst-title {
-  @apply text-lg font-semibold mb-4 text-center;
+  @apply relative text-lg font-semibold mb-4 text-center uppercase tracking-wide;
   background: linear-gradient(90deg, #00e0ff 0%, #8be8ff 50%, #00e0ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 8px rgba(139, 232, 255, 0.6), 0 0 16px rgba(0, 224, 255, 0.4);
-  letter-spacing: 0.5px;
-  animation: shimmer 3s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(139, 232, 255, 0.6),
+    0 0 18px rgba(0, 224, 255, 0.5);
+  overflow: hidden;
 }
 
-/* Glow pulse / shimmer animation */
-@keyframes shimmer {
+/* Pulse glow */
+@keyframes instPulse {
   0%,
   100% {
-    text-shadow: 0 0 8px rgba(139, 232, 255, 0.6),
-      0 0 16px rgba(0, 224, 255, 0.4);
+    text-shadow: 0 0 10px rgba(139, 232, 255, 0.6),
+      0 0 18px rgba(0, 224, 255, 0.4);
   }
   50% {
-    text-shadow: 0 0 14px rgba(139, 232, 255, 0.9),
+    text-shadow: 0 0 20px rgba(139, 232, 255, 0.9),
       0 0 30px rgba(0, 255, 255, 0.8);
+  }
+}
+.inst-title {
+  animation: instPulse 3s ease-in-out infinite;
+}
+
+/* === Light Sweep overlay === */
+.inst-title .inst-sweep {
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(224, 134, 189, 0.9) 50%,
+    rgba(83, 46, 231, 0.4) 75%,
+    transparent 80%
+  );
+  transform: skewX(-20deg);
+  animation: instSweepAnim 5s ease-in-out infinite;
+}
+
+/* Sweep animation */
+@keyframes instSweepAnim {
+  0% {
+    left: -75%;
+  }
+  60% {
+    left: 125%;
+  }
+  100% {
+    left: 125%;
   }
 }
