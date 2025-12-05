@@ -74,7 +74,6 @@ pub struct InstructionRequest<T> {
 #[derive(Deserialize, Debug)]
 pub struct SwapInstructionParams {
     pub source_mint: String,
-    pub destination_mint: String,
     pub in_amount: u64,
     pub min_out_amount: u64,
     pub signer: String,

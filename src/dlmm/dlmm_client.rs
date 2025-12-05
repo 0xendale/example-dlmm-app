@@ -29,7 +29,6 @@ impl UpdateAmm for SarosDlmm {
                 // continue;
             }
         }
-        for account_key in &accounts_to_update {}
 
         let account_map: HashMap<Pubkey, Account, RandomState> = ctx
             .rpc_client

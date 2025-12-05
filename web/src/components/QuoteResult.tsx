@@ -26,7 +26,6 @@ export default function QuoteResult({
 
     const nextParams = {
       source_mint: quote?.input?.address,
-      destination_mint: quote?.output?.address,
       in_amount: quote?.in_amount,
       min_out_amount: quote?.out_amount,
     };

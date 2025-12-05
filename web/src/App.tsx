@@ -25,7 +25,6 @@ export default function App() {
   const debouncedAmount = useDebounce(amountIn, 500); // 1s delay
   const [amountOut, setAmountOut] = useState("0");
   const [quote, setQuote] = useState<any>(null);
-  const [swapParams, setSwapParams] = useState<any>(null);
   const [txSwap, setTxSwap] = useState<any>(null);
 
   const currentPairRef = useRef(pair);
@@ -63,7 +62,6 @@ export default function App() {
       console.log("catch e ", err);
       setPairStatus(`${err.message}`);
       throw err;
-      // throw new Error(err.message);
     }
   };
 
@@ -118,7 +116,7 @@ export default function App() {
     setTxLoading(true);
     try {
       console.info("Trying execute swap transaction", params);
-      const res = await fetch("/api/simulate_swap", {
+      const res = await fetch("/api/simulate_tx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -130,8 +128,12 @@ export default function App() {
       const response = await res.json();
 
       console.log("Swap response: ", response);
-
-      setTxSwap(response);
+      if (response.status === "ok") {
+        let data = response.data;
+        setTxSwap(data);
+      } else {
+        setTxSwap({ error: response.message });
+      }
       setTxLoading(false);
     } catch {
       setTxSwap({ error: "Failed to execute swap" });
@@ -224,11 +226,7 @@ export default function App() {
             )}
 
             {txSwap != null && (
-              <SwapResult
-                swapParams={swapParams}
-                loading={txLoading}
-                txSwap={txSwap}
-              />
+              <SwapResult loading={txLoading} txSwap={txSwap} />
             )}
           </div>
         )}

@@ -190,11 +190,7 @@ impl AppContext {
         Ok([mint_a_state, mint_b_state])
     }
 
-    pub async fn execute_simulate_swap(&self) -> Result<()> {
-        Ok(())
-    }
-
-    fn check() -> &'static str {
+    fn _check() -> &'static str {
         "a"
     }
 }

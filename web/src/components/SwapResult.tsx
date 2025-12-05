@@ -3,23 +3,11 @@ import { useEffect, useState } from "react";
 import LogResultPanel from "./LogResultPanel";
 
 type Props = {
-  swapParams: any;
   loading?: boolean;
   txSwap: any;
 };
 
-export default function SwapResult({ swapParams, loading, txSwap }: Props) {
-  const [swapParamsState, setSwapParamsState] = useState<any>(swapParams);
-  useEffect(() => {
-    let swapParamsState = {
-      source_mint: swapParams?.input?.address,
-      destination_mint: swapParams?.output?.address,
-      in_amount: swapParams?.in_amount,
-      min_out_amount: swapParams?.out_amount,
-    };
-    setSwapParamsState(swapParamsState);
-  }, [swapParams]);
-
+export default function SwapResult({ loading, txSwap }: Props) {
   return (
     <>
       <div className="mt-8 min-h-[6rem]">
@@ -56,21 +44,17 @@ export default function SwapResult({ swapParams, loading, txSwap }: Props) {
             </motion.div>
           )}
 
-          {/* Swap result result */}
           {/* Swap execution result */}
-          {!loading && swapParamsState && !txSwap.error && txSwap && (
+          {!loading && !txSwap?.error && txSwap && (
             <motion.div
               key="swap-result"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="mt-6 bg-gray-900/60 p-4 rounded-lg border border-gray-800 font-mono text-sm text-gray-300 space-y-2"
+              className="mt-8"
             >
-              <div className="text-lg font-semibold text-emerald-400 mb-2">
-                Swap Executed Successfully
-              </div>
-              <LogResultPanel result={txSwap.data} />
+              <LogResultPanel result={txSwap} />
             </motion.div>
           )}
         </AnimatePresence>

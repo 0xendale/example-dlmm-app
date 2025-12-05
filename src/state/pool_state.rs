@@ -10,22 +10,22 @@ use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
 pub struct PoolState {
     pub mint_x: Pubkey,
     pub mint_y: Pubkey,
-    pub active_bin_array_lower: BinArray,
-    pub active_bin_array_upper: BinArray,
+    pub _active_bin_array_lower: BinArray,
+    pub _active_bin_array_upper: BinArray,
 }
 
 impl PoolState {
     pub fn new(
         mint_x: Pubkey,
         mint_y: Pubkey,
-        active_bin_array_lower: BinArray,
-        active_bin_array_upper: BinArray,
+        _active_bin_array_lower: BinArray,
+        _active_bin_array_upper: BinArray,
     ) -> Self {
         PoolState {
             mint_x,
             mint_y,
-            active_bin_array_lower,
-            active_bin_array_upper,
+            _active_bin_array_lower,
+            _active_bin_array_upper,
         }
     }
 

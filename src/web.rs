@@ -3,18 +3,12 @@ use saros_sdk::{
     instruction::build_swap_instruction_data, math::swap_manager::SwapType,
     utils::helper::is_swap_for_y,
 };
-use solana_client::{client_error::reqwest, rpc_request::RpcRequest};
-use solana_program::example_mocks::solana_sdk::transaction::VersionedTransaction;
+use solana_client::client_error::reqwest;
 use solana_sdk::{
-    hash::Hash,
-    instruction::Instruction,
-    message::Message,
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::{Transaction, TransactionVersion},
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, message::Message,
+    pubkey::Pubkey, signature::Signature, transaction::Transaction,
 };
-use spl_token_metadata_interface::solana_instruction::Instruction as SolInstruction;
-use std::{collections::HashMap, net::SocketAddr, str::FromStr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tracing::info;
 
 use axum::{
@@ -36,11 +30,9 @@ use crate::{
     },
 };
 use anyhow::Result;
-use spl_associated_token_account::{
-    get_associated_token_address, get_associated_token_address_with_program_id,
-};
+use spl_associated_token_account::get_associated_token_address_with_program_id;
 
-use jupiter_amm_interface::{Amm, QuoteParams, SwapMode, SwapParams};
+use jupiter_amm_interface::{Amm, QuoteParams, SwapMode};
 
 use base64::{engine::general_purpose, Engine as _};
 
@@ -60,7 +52,7 @@ pub async fn start_web_server(config: AppConfig) -> Result<()> {
         .route("/api/pair", get(get_pair))
         .route("/api/quote", post(get_quote))
         .route("/api/instruction", post(get_instruction))
-        .route("/api/simulate_swap", post(simulate_swap));
+        .route("/api/simulate_tx", post(simulate_tx));
 
     // Define API routes
     let app = Router::new()
@@ -74,7 +66,7 @@ pub async fn start_web_server(config: AppConfig) -> Result<()> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    println!("Web server listening on http://{}", addr);
+    tracing::info!("Web server listening on http://{}", addr);
     axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
@@ -241,77 +233,6 @@ async fn get_instruction(
     State(ctx): State<Arc<AppContext>>,
     Json(body): Json<InstructionRequest<serde_json::Value>>,
 ) -> Json<WebJsonResponse> {
-    let pair_address = body.pair_address.clone();
-
-    let params: SwapInstructionParams = serde_json::from_value(body.params.clone()).unwrap();
-    info!("🔍 Getting instruction for pair {}", pair_address);
-    let source_mint = Pubkey::from_str_const(&params.source_mint);
-    let destination_mint = Pubkey::from_str_const(&params.destination_mint);
-
-    // 1️⃣ take DLMM client
-    let dlmm_client = match ctx
-        .get_or_spawn_client(Pubkey::from_str_const(&pair_address))
-        .await
-    {
-        Ok(client) => client,
-        Err(e) => {
-            return Json(WebJsonResponse {
-                status: Status::Error,
-                message: format!("Failed to get DLMM client: {}", e),
-                data: json!({}),
-            });
-        }
-    };
-
-    let client = dlmm_client.saros_dlmm.read().await;
-
-    let is_swap_for_y = is_swap_for_y(source_mint, client.pair.token_mint_x);
-    let swap_mode = if is_swap_for_y {
-        if source_mint == client.pair.token_mint_x {
-            SwapMode::ExactIn
-        } else {
-            SwapMode::ExactOut
-        }
-    } else {
-        if source_mint == client.pair.token_mint_x {
-            SwapMode::ExactOut
-        } else {
-            SwapMode::ExactIn
-        }
-    };
-
-    let (instruction_type, params) = match body.instruction_type {
-        InstructionType::Swap => {
-            let params: SwapInstructionParams = serde_json::from_value(body.params).unwrap();
-            info!("💱 Generating swap instruction with params: {:?}", params);
-
-            (
-                "swap",
-                json!({
-                    "amount_in": params.in_amount,
-                    "minimum_amount_out": params.min_out_amount,
-                    "source_mint": params.source_mint,
-                    "destination_mint": params.destination_mint,
-                }),
-            )
-        }
-        _ => ("unsupported", json!({})),
-        // InstructionType::ClosePosition => ("close_position", json!({})),
-    };
-
-    // Implementation for fetching instruction details goes here
-    Json(WebJsonResponse {
-        status: Status::Success,
-        message: "Instruction fetched successfully".to_string(),
-        data: json!({}),
-    })
-}
-
-#[axum::debug_handler]
-async fn simulate_swap(
-    State(ctx): State<Arc<AppContext>>,
-    Json(body): Json<InstructionRequest<serde_json::Value>>,
-) -> Json<WebJsonResponse> {
     info!("🔍 Simulating swap with body: {:?}", body);
 
     let pair_address = body.pair_address.clone();
@@ -320,7 +241,6 @@ async fn simulate_swap(
     info!("🔍 Getting instruction for pair {}", pair_address);
 
     let source_mint = Pubkey::from_str_const(&params.source_mint);
-    let destination_mint = Pubkey::from_str_const(&params.destination_mint);
     let in_amount = params.in_amount;
     let min_out_amount = params.min_out_amount;
 
@@ -380,12 +300,8 @@ async fn simulate_swap(
 
     let bin_for_swap = client.compute_bin_array_swap().unwrap();
 
-    let (instruction_type, params) = match body.instruction_type {
+    let data = match body.instruction_type {
         InstructionType::Swap => {
-            let params: SwapInstructionParams = serde_json::from_value(body.params).unwrap();
-
-            // let fake_hash = Hash::new_unique();
-
             let swap_instruction_data = build_swap_instruction_data(
                 saros_sdk::instruction::BuildSwapInstructionDataParams {
                     amount: in_amount,
@@ -461,9 +377,183 @@ async fn simulate_swap(
                 data: swap_instruction_data,
             };
 
-            println!("Swap instruction: {:?}", swap_instruction);
+            tracing::info!("Swap instruction: {:?}", swap_instruction);
 
-            let message = Message::new(&[swap_instruction], Some(&user));
+            json!({
+               "instruction_type": "swap",
+               "data": swap_instruction
+            })
+        }
+        _ => json!({
+            "instruction_type": "unsupported",
+            "data": ""
+        }),
+    };
+    // Implementation for fetching instruction details goes here
+    Json(WebJsonResponse {
+        status: Status::Success,
+        message: "Instruction fetched successfully".to_string(),
+        data: data,
+    })
+}
+
+#[axum::debug_handler]
+async fn simulate_tx(
+    State(ctx): State<Arc<AppContext>>,
+    Json(body): Json<InstructionRequest<serde_json::Value>>,
+) -> Json<WebJsonResponse> {
+    info!("🔍 Simulating swap with body: {:?}", body);
+
+    let pair_address = body.pair_address.clone();
+    let params: SwapInstructionParams = serde_json::from_value(body.params.clone()).unwrap();
+
+    info!("🔍 Getting instruction for pair {}", pair_address);
+
+    let source_mint = Pubkey::from_str_const(&params.source_mint);
+    let in_amount = params.in_amount;
+    let min_out_amount = params.min_out_amount;
+
+    // 1️⃣ take DLMM client
+    let dlmm_client = match ctx
+        .get_or_spawn_client(Pubkey::from_str_const(&pair_address))
+        .await
+    {
+        Ok(client) => client,
+        Err(e) => {
+            return Json(WebJsonResponse {
+                status: Status::Error,
+                message: format!("Failed to get DLMM client: {}", e),
+                data: json!({}),
+            });
+        }
+    };
+
+    for _ in 0..3 {
+        if let Err(e) = dlmm_client.update(&ctx).await {
+            tracing::warn!("⚠️ Failed to update DLMM client: {}", e);
+            continue;
+        }
+    }
+
+    let client = dlmm_client.saros_dlmm.read().await;
+
+    let user = Pubkey::from_str_const(&params.signer);
+
+    // let source_token_account = get_associated_token_address(&user, &source_mint).to_string();
+    let user_token_vault_x = get_associated_token_address_with_program_id(
+        &user,
+        &client.pair.token_mint_x,
+        &client.token_program[0],
+    );
+
+    let user_token_vault_y = get_associated_token_address_with_program_id(
+        &user,
+        &client.pair.token_mint_y,
+        &client.token_program[1],
+    );
+
+    let is_swap_for_y = is_swap_for_y(source_mint, client.pair.token_mint_x);
+    let swap_mode = if is_swap_for_y {
+        if source_mint == client.pair.token_mint_x {
+            SwapType::ExactIn
+        } else {
+            SwapType::ExactOut
+        }
+    } else {
+        if source_mint == client.pair.token_mint_x {
+            SwapType::ExactOut
+        } else {
+            SwapType::ExactIn
+        }
+    };
+
+    let bin_for_swap = client.compute_bin_array_swap().unwrap();
+
+    let data_response = match body.instruction_type {
+        InstructionType::Swap => {
+            let swap_instruction_data = build_swap_instruction_data(
+                saros_sdk::instruction::BuildSwapInstructionDataParams {
+                    amount: in_amount,
+                    other_amount_threshold: min_out_amount,
+                    swap_for_y: is_swap_for_y,
+                    swap_mode,
+                },
+            )
+            .unwrap();
+
+            let mut account_metas = Vec::new();
+
+            {
+                account_metas.push(AccountMeta::new(client.key, false));
+                account_metas.push(AccountMeta::new_readonly(client.pair.token_mint_x, false));
+                account_metas.push(AccountMeta::new_readonly(client.pair.token_mint_y, false));
+                account_metas.push(AccountMeta::new(bin_for_swap.bin_array_keys[0], false));
+                account_metas.push(AccountMeta::new(bin_for_swap.bin_array_keys[1], false));
+                account_metas.push(AccountMeta::new(client.token_vault[0], false));
+                account_metas.push(AccountMeta::new(client.token_vault[1], false));
+                account_metas.push(AccountMeta::new(
+                    Pubkey::from_str_const(&user_token_vault_x.to_string()),
+                    false,
+                ));
+                account_metas.push(AccountMeta::new(
+                    Pubkey::from_str_const(&user_token_vault_y.to_string()),
+                    false,
+                ));
+                account_metas.push(AccountMeta::new_readonly(user, true));
+                account_metas.push(AccountMeta::new_readonly(client.token_program[0], false));
+                account_metas.push(AccountMeta::new_readonly(client.token_program[1], false));
+                account_metas.push(AccountMeta::new_readonly(
+                    Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                    false,
+                ));
+            }
+
+            // If pair does not have hook, hook should be pair key (dummy)
+            account_metas.push(AccountMeta::new(client.hook, false));
+            account_metas.push(AccountMeta::new_readonly(ctx.config.hook_program_id, false));
+            // This expect as the last of swap instruction
+            account_metas.push(AccountMeta::new_readonly(client.event_authority, false));
+            account_metas.push(AccountMeta::new_readonly(client.program_id, false));
+
+            // Remaining accounts for hook CPI call
+            if client.hook != client.key {
+                let bin_array_index = client.pair.bin_array_index();
+                let (hook_bin_array_lower, _) = Pubkey::find_program_address(
+                    &[
+                        b"bin_array".as_ref(),
+                        client.hook.as_ref(),
+                        (bin_array_index).to_le_bytes().as_ref(),
+                    ],
+                    &ctx.config.hook_program_id,
+                );
+
+                let (hook_bin_array_upper, _) = Pubkey::find_program_address(
+                    &[
+                        b"bin_array".as_ref(),
+                        client.hook.as_ref(),
+                        (bin_array_index + 1).to_le_bytes().as_ref(),
+                    ],
+                    &ctx.config.hook_program_id,
+                );
+
+                account_metas.push(AccountMeta::new(hook_bin_array_lower, false));
+                account_metas.push(AccountMeta::new(hook_bin_array_upper, false));
+            }
+
+            let swap_instruction = Instruction {
+                program_id: client.program_id,
+                accounts: account_metas,
+                data: swap_instruction_data,
+            };
+
+            tracing::info!("Swap instruction: {:?}", swap_instruction);
+
+            let mut instructions = vec![];
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(1_400_000));
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_price(1));
+            instructions.push(swap_instruction);
+
+            let message = Message::new(&instructions, Some(&user));
 
             let dummy_signature = Signature::new_unique();
 
@@ -509,22 +599,15 @@ async fn simulate_swap(
                 }
             };
 
-            let parsed = parse_simulation_result(&response);
-
-            (
-                "swap",
-                json!({
-                   "response": parsed
-                }),
-            )
+            parse_simulation_result(&response)
         }
-        _ => ("unsupported", json!({})),
+        _ => json!({"response": "unsupported"}),
     };
 
     return Json(WebJsonResponse {
         status: Status::Success,
         message: "Simulation successful".to_string(),
-        data: params,
+        data: data_response,
     });
 }
 

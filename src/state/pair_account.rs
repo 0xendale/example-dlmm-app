@@ -16,7 +16,7 @@ pub struct PairAccount {
 }
 
 impl PairAccount {
-    pub fn fetch(client: Arc<RpcClient>, pair_key: Pubkey) -> Result<PairAccount> {
+    pub fn _fetch(client: Arc<RpcClient>, pair_key: Pubkey) -> Result<PairAccount> {
         let account = client.get_account(&pair_key)?;
 
         let ui_account =
@@ -37,7 +37,7 @@ impl PairAccount {
         })
     }
 
-    pub fn into_keyed_account(self) -> KeyedAccount {
+    pub fn _into_keyed_account(self) -> KeyedAccount {
         KeyedAccount {
             key: self.key,
             account: self.account,

@@ -2,7 +2,6 @@ mod app;
 mod cli;
 mod dlmm;
 mod state;
-mod utils;
 mod web;
 
 use std::time::Duration;
