@@ -45,7 +45,7 @@ export default function SwapResult({ loading, txSwap }: Props) {
           )}
 
           {/* Swap execution result */}
-          {!loading && !txSwap?.error && txSwap && (
+          {!loading && txSwap && (
             <motion.div
               key="swap-result"
               initial={{ opacity: 0, y: 8 }}
